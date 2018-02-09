@@ -1,23 +1,31 @@
 import argparse
 import pathlib
 
+root_path = None or '.'
 
-class RunTests(argparse.Action):
+
+def run():
+    print("Searching in:", root_path)
+
+    path = pathlib.Path(root_path)
+
+    for filename in path.rglob('*.v'):
+        print(filename)
+
+
+class SetRoot(argparse.Action):
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        super(RunTests, self).__init__(option_strings, dest, **kwargs)
+        super(SetRoot, self).__init__(option_strings, dest, **kwargs)
 
     def __call__(self, parser, namespace, values, optios_string=None):
-        root = values or '.'
-        print("Searching in:", root)
+        global root_path
+        root_path = values
 
-        path = pathlib.Path(root)
-
-        for filename in path.rglob('*.v'):
-            print(filename)
 
 args_parser = argparse.ArgumentParser()
-args_parser.add_argument('--root', help='Project\'s root direcory', default='.', action=RunTests)
+args_parser.add_argument('--root', help='Project\'s root direcory', default='.', action=SetRoot)
 
 if __name__ == '__main__':
     root = args_parser.parse_args()
+    run()
