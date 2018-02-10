@@ -3,16 +3,31 @@ import argparse
 import pathlib
 import re
 import subprocess
+import json
+
 
 root_path = '.'
 compiler = 'iverilog'
 executor = 'vvp'
+output_file = 'test_result.json'
+
+
+def parse_test_output_line(line):
+    parts = line.split(':')
+    status = True if parts[1].strip().lower() == 'ok' else False
+    name = parts[0].replace('Test ', '').replace('"', '')
+    return name, status
 
 
 def run():
     print("Searching in root:", root_path)
 
     path = pathlib.Path(root_path)
+
+    output_raw = []
+
+    all_tests_counter = 0
+    good_tests_counter = 0
 
     def key(x): return x.parent
     files_group = groupby(sorted([x for x in path.rglob(
@@ -43,8 +58,24 @@ def run():
                 [executor,
                  objectfile_name],
                 cwd=testing_dir,
+                stdout=subprocess.PIPE,
             )
+            output = [x for x in test_run_process.stdout.read().decode(
+                'utf8').split('\n', ) if x]
+            parsed_output = [parse_test_output_line(x) for x in output]
+
+            all_tests_counter += len(parsed_output)
+            good_tests_counter += len([x for x in parsed_output if x[1] is True])
+            output_raw.append(
+                {'module': filename.name, 'tests': [parsed_output]})
+
             test_run_process.wait()
+
+        total_result = {'summary': {'total': all_tests_counter, 'good': good_tests_counter, 'failed': all_tests_counter -
+                                    good_tests_counter, 'it_is_good': all_tests_counter == good_tests_counter}, 'tests': output_raw}
+
+        with open(output_file, 'w', encoding='utf8') as file:
+            file.write(json.dumps(total_result))
 
 
 class SetRoot(argparse.Action):
